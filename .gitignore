@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Node/React
+node_modules/
+*.npm
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+postgres-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+/data/clips/*
+!.gitkeep
+docs/
+.cursorrules
