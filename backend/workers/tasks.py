@@ -57,6 +57,7 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             await _validate_and_extract_duration(clip, file_path, db)
         except Exception as exc:
             clip.processing_status = ProcessingStatus.failed
+            clip.desc_embedding_error = f"Processing failed: {exc}"
             await db.commit()
             return
 

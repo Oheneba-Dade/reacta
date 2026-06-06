@@ -2,15 +2,16 @@ annotated-types==0.7.0
 anyio==4.13.0
 arq
 asyncpg
+greenlet
 click==8.4.1
 fastapi==0.136.3
 ffmpeg-python
 h11==0.16.0
 idna==3.18
 openai-whisper
-passlib[bcrypt]
+bcrypt
 pgvector
-pydantic==2.13.4
+pydantic[email]==2.13.4
 pydantic_core==2.46.4
 pydantic-settings
 python-dotenv==1.2.2
@@ -21,3 +22,6 @@ SQLAlchemy==2.0.50
 starlette==1.2.1
 typing_extensions==4.15.0
 uvicorn==0.48.0
+pytest
+pytest-asyncio
+httpx
