@@ -8,12 +8,20 @@ venv/
 env/
 ENV/
 .venv
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
 
 # Node/React
 node_modules/
 *.npm
-dist/
-build/
 
 # Environment
 .env
@@ -25,6 +33,7 @@ build/
 .idea/
 *.swp
 *.swo
+.cursorrules
 
 # Database
 *.db
@@ -34,8 +43,14 @@ postgres-data/
 .DS_Store
 Thumbs.db
 
-# Project-specific
+# Uploaded media (if MEDIA_ROOT points inside the project)
+/media/
 /data/clips/*
 !.gitkeep
-docs/
-.cursorrules
+
+# ML model caches
+.cache/
+/models/
+
+# ARQ / Redis
+dump.rdb
