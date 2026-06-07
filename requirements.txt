@@ -10,6 +10,7 @@ h11==0.16.0
 idna==3.18
 openai-whisper
 bcrypt
+boto3
 pgvector
 pydantic[email]==2.13.4
 pydantic_core==2.46.4
