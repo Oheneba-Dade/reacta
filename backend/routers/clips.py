@@ -177,3 +177,30 @@ async def get_clip_status(
 ) -> ClipStatusResponse:
     clip = await _get_owned_clip(clip_id, current_user, db)
     return ClipStatusResponse.model_validate(clip)
+
+
+@router.post("/{clip_id}/reprocess", status_code=202, response_model=ClipCreateResponse)
+async def reprocess_clip(
+    clip_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ClipCreateResponse:
+    clip = await _get_owned_clip(clip_id, current_user, db)
+
+    if clip.processing_status != ProcessingStatus.failed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "validation_error", "message": "Only clips with processing_status 'failed' can be reprocessed"},
+        )
+
+    clip.processing_status = ProcessingStatus.pending
+    clip.desc_embedding_status = EmbeddingStatus.pending
+    clip.desc_embedding_error = None
+    clip.transcript_status = TranscriptStatus.pending
+    clip.transcript_error = None
+    clip.description_embedding = None
+    await db.commit()
+
+    await _enqueue_process_clip(str(clip_id))
+
+    return ClipCreateResponse(id=clip_id, processing_status=ProcessingStatus.pending.value)
