@@ -1,8 +1,11 @@
 import asyncio
 import json
+import os
+import tempfile
 import uuid
 from typing import Any
 
+import httpx
 from arq.connections import RedisSettings
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +37,29 @@ def chunk_transcript(text: str, max_words: int = 100, overlap: int = 20) -> list
     return chunks
 
 
+async def _resolve_local_path(url: str, file_extension: str) -> tuple[str, bool]:
+    """Return (local_path, is_temporary).
+
+    DiskStorage returns a filesystem path — use it directly.
+    S3Storage returns a presigned HTTPS URL — download to a named temp file.
+    """
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return url, False
+
+    suffix = file_extension if file_extension.startswith(".") else f".{file_extension}"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = tmp.name
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=120.0) as client:
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
+            with open(tmp_path, "wb") as f:
+                async for chunk in response.aiter_bytes(chunk_size=65536):
+                    f.write(chunk)
+
+    return tmp_path, True
+
+
 async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
     """
     Background job: transcribe audio, embed transcript chunks, embed description.
@@ -49,68 +75,77 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
         clip.processing_status = ProcessingStatus.processing
         await db.commit()
 
-        # Steps 2–4: validate file and extract duration
+        # Resolve file to a local path (downloads to temp file if S3/B2)
         storage = get_storage()
-        file_path = storage.get_url(clip.storage_key)
+        file_url = storage.get_url(clip.storage_key)
+        local_path, is_temp = await _resolve_local_path(file_url, clip.file_extension)
 
         try:
-            await _validate_and_extract_duration(clip, file_path, db)
-        except Exception as exc:
-            clip.processing_status = ProcessingStatus.failed
-            clip.desc_embedding_error = f"Processing failed: {exc}"
-            await db.commit()
-            return
-
-        # Step 5: transcription (skip if already completed)
-        if clip.transcript_status != TranscriptStatus.completed:
+            # Steps 2–4: validate file and extract duration
             try:
-                transcript = await asyncio.to_thread(transcription_service.transcribe, file_path)
-                clip.transcript = transcript
-                clip.transcript_status = TranscriptStatus.completed
-                clip.transcript_error = None
-                await db.commit()
+                await _validate_and_extract_duration(clip, local_path, db)
             except Exception as exc:
-                clip.transcript_status = TranscriptStatus.failed
-                clip.transcript_error = str(exc)
+                clip.processing_status = ProcessingStatus.failed
+                clip.desc_embedding_error = f"Processing failed: {exc}"
                 await db.commit()
+                return
 
-        # Steps 6–7: chunk and embed transcript
-        if clip.transcript and clip.transcript_status == TranscriptStatus.completed:
-            try:
-                chunks = chunk_transcript(clip.transcript)
-                embeddings = await asyncio.to_thread(embedding_service.embed_batch, chunks)
+            # Step 5: transcription (skip if already completed)
+            if clip.transcript_status != TranscriptStatus.completed:
+                try:
+                    transcript = await asyncio.to_thread(transcription_service.transcribe, local_path)
+                    clip.transcript = transcript
+                    clip.transcript_status = TranscriptStatus.completed
+                    clip.transcript_error = None
+                    await db.commit()
+                except Exception as exc:
+                    clip.transcript_status = TranscriptStatus.failed
+                    clip.transcript_error = str(exc)
+                    await db.commit()
 
-                await db.execute(
-                    delete(TranscriptEmbedding).where(TranscriptEmbedding.clip_id == clip.id)
-                )
-                for idx, (chunk, vec) in enumerate(zip(chunks, embeddings)):
-                    db.add(TranscriptEmbedding(
-                        clip_id=clip.id,
-                        transcript_chunk=chunk,
-                        chunk_index=idx,
-                        embedding=vec,
-                    ))
-                await db.commit()
-            except Exception as exc:
-                await db.rollback()
+            # Steps 6–7: chunk and embed transcript
+            if clip.transcript and clip.transcript_status == TranscriptStatus.completed:
+                try:
+                    chunks = chunk_transcript(clip.transcript)
+                    embeddings = await asyncio.to_thread(embedding_service.embed_batch, chunks)
 
-        # Step 8: embed description
-        if clip.description:
-            try:
-                vec = await asyncio.to_thread(embedding_service.embed, clip.description)
-                clip.description_embedding = vec
-                clip.desc_embedding_status = EmbeddingStatus.completed
-                clip.desc_embedding_error = None
-                await db.commit()
-            except Exception as exc:
-                clip.desc_embedding_status = EmbeddingStatus.failed
-                clip.desc_embedding_error = str(exc)
-                await db.commit()
+                    await db.execute(
+                        delete(TranscriptEmbedding).where(TranscriptEmbedding.clip_id == clip.id)
+                    )
+                    for idx, (chunk, vec) in enumerate(zip(chunks, embeddings)):
+                        db.add(TranscriptEmbedding(
+                            clip_id=clip.id,
+                            transcript_chunk=chunk,
+                            chunk_index=idx,
+                            embedding=vec,
+                        ))
+                    await db.commit()
+                except Exception as exc:
+                    await db.rollback()
+
+            # Step 8: embed description
+            if clip.description:
+                try:
+                    vec = await asyncio.to_thread(embedding_service.embed, clip.description)
+                    clip.description_embedding = vec
+                    clip.desc_embedding_status = EmbeddingStatus.completed
+                    clip.desc_embedding_error = None
+                    await db.commit()
+                except Exception as exc:
+                    clip.desc_embedding_status = EmbeddingStatus.failed
+                    clip.desc_embedding_error = str(exc)
+                    await db.commit()
+
+        finally:
+            if is_temp:
+                try:
+                    os.unlink(local_path)
+                except Exception:
+                    pass
 
 
 async def _validate_and_extract_duration(clip: Clip, file_path: str, db: AsyncSession) -> None:
     """Run ffprobe to get duration, update clip, set processing_status = ready."""
-    import os
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
