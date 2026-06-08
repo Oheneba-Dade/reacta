@@ -8,12 +8,6 @@ import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { ClipModal } from '@/components/clips/ClipModal'
 
-const EXAMPLE_QUERIES = [
-  'someone saying jesus is lord',
-  'football fan losing it',
-  'complete shock reaction',
-]
-
 export default function SearchPage() {
   const router = useRouter()
   const { query, results, loading, error, hasSearched, runSearch } = useSearch()
@@ -36,17 +30,6 @@ export default function SearchPage() {
           <h1 className="text-[18px] font-medium lowercase tracking-[-0.02em] text-[#1a1c1c]">
             search your reaction library
           </h1>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {EXAMPLE_QUERIES.map((q) => (
-              <button
-                key={q}
-                onClick={() => runSearch(q)}
-                className="rounded-md border border-[#e5e5e5] px-3 py-1.5 text-[14px] text-[#444748] transition-colors hover:border-[#4648d4]"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
