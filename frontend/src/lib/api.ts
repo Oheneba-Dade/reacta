@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { clearTokens, getAccessToken } from '@/lib/auth'
+import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/lib/auth'
 import type { AuthTokens, Clip, ClipStatus, SearchResult, Tag, User } from '@/lib/types'
 
 const api = axios.create({
@@ -14,10 +14,36 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let _refreshing: Promise<string> | null = null
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
+  async (error) => {
+    const original = error.config
+    if (error.response?.status === 401 && !original._retried) {
+      original._retried = true
+      const refreshToken = getRefreshToken()
+      if (refreshToken) {
+        try {
+          if (!_refreshing) {
+            _refreshing = axios
+              .post<AuthTokens>(
+                `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+                { refresh_token: refreshToken }
+              )
+              .then((r) => {
+                saveTokens(r.data.access_token, r.data.refresh_token ?? refreshToken)
+                return r.data.access_token
+              })
+              .finally(() => { _refreshing = null })
+          }
+          const newToken = await _refreshing
+          original.headers.Authorization = `Bearer ${newToken}`
+          return api(original)
+        } catch {
+          // refresh failed — fall through to logout
+        }
+      }
       clearTokens()
       window.location.href = '/'
     }
@@ -49,6 +75,9 @@ export const clips = {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       .then((r) => r.data),
+
+  update: (id: string, body: { title?: string; description?: string; tag_ids?: string[] }) =>
+    api.patch<Clip>(`/clips/${id}`, body).then((r) => r.data),
 
   status: (id: string) => api.get<ClipStatus>(`/clips/${id}/status`).then((r) => r.data),
 
