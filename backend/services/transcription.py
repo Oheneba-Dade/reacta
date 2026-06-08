@@ -1,14 +1,13 @@
-import whisper
-
 from backend.config import settings
 
 
 class TranscriptionService:
-    _model: whisper.Whisper | None = None
+    _model = None
 
     @classmethod
-    def _get_model(cls) -> whisper.Whisper:
+    def _get_model(cls):
         if cls._model is None:
+            import whisper
             cls._model = whisper.load_model(settings.whisper_model, download_root="/app/models")
         return cls._model
 
