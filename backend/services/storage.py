@@ -44,6 +44,7 @@ class DiskStorage(StorageBackend):
 class S3Storage(StorageBackend):
     def __init__(self) -> None:
         import boto3
+        from botocore.config import Config
 
         missing = [
             name for name, val in {
@@ -65,6 +66,7 @@ class S3Storage(StorageBackend):
             endpoint_url=settings.b2_endpoint_url,
             aws_access_key_id=settings.b2_access_key_id,
             aws_secret_access_key=settings.b2_secret_access_key,
+            config=Config(signature_version="s3v4"),
         )
 
     def save(self, key: str, file_bytes: bytes) -> str:
