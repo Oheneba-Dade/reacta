@@ -122,12 +122,23 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             # Step 5: transcription (skip if already completed)
             if clip.transcript_status != TranscriptStatus.completed:
                 try:
-                    transcript = await asyncio.to_thread(transcription_service.transcribe, local_path)
-                    clip.transcript = transcript
+                    transcript_text = await asyncio.to_thread(transcription_service.transcribe, local_path)
+                    clip.transcript = transcript_text
                     clip.transcript_status = TranscriptStatus.completed
                     clip.transcript_error = None
                     await db.commit()
-                    logger.info(f"clip {clip_id}: step 5 complete — transcription done")
+                    if transcript_text:
+                        logger.info(f"clip {clip_id}: step 5 complete — transcription done")
+                    else:
+                        logger.info(f"clip {clip_id}: step 5 complete — no speech detected, transcript empty")
+                except RuntimeError as exc:
+                    # Whisper raises RuntimeError on silent/empty audio (reshape error).
+                    # Treat as no speech — clip is still searchable via description.
+                    logger.info(f"clip {clip_id}: step 5 — no speech detected ({exc}), marking complete with empty transcript")
+                    clip.transcript = ""
+                    clip.transcript_status = TranscriptStatus.completed
+                    clip.transcript_error = None
+                    await db.commit()
                 except Exception as exc:
                     logger.error(f"clip {clip_id}: step 5 failed — {exc}")
                     clip.transcript_status = TranscriptStatus.failed
