@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Pencil } from 'lucide-react'
+import { X, Pencil, Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { clips as clipsApi } from '@/lib/api'
 import { useTags } from '@/hooks/useTags'
@@ -31,7 +31,13 @@ interface Props {
   onUpdate?: (clip: Clip) => void
 }
 
-const TERMINAL = ['ready', 'failed']
+function isFullyDone(c: Clip) {
+  return (
+    (c.processing_status === 'ready' || c.processing_status === 'failed') &&
+    (c.transcript_status === 'completed' || c.transcript_status === 'failed') &&
+    (c.desc_embedding_status === 'completed' || c.desc_embedding_status === 'failed')
+  )
+}
 
 export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
   const [clip, setClip] = useState<Clip | null>(null)
@@ -48,27 +54,32 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Copy state
+  const [copied, setCopied] = useState(false)
+
   useEffect(() => {
-    clipsApi.get(clipId).then(setClip).catch(console.error)
+    clipsApi.get(clipId).then((fresh) => {
+      console.log('[ClipModal] fetched clip:', fresh)
+      setClip(fresh)
+    }).catch(console.error)
   }, [clipId])
 
   useEffect(() => {
     if (!clip) return
-    if (TERMINAL.includes(clip.processing_status)) return
+    if (isFullyDone(clip)) return
 
     const id = setInterval(async () => {
       try {
-        const status = await clipsApi.status(clipId)
-        if (TERMINAL.includes(status.processing_status)) {
+        const updated = await clipsApi.get(clipId)
+        setClip(updated)
+        if (isFullyDone(updated)) {
           clearInterval(id)
-          const updated = await clipsApi.get(clipId)
-          setClip(updated)
         }
       } catch {}
     }, 5000)
 
     return () => clearInterval(id)
-  }, [clip?.processing_status, clipId])
+  }, [clip?.processing_status, clip?.transcript_status, clip?.desc_embedding_status, clipId])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -136,6 +147,14 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
     }
   }
 
+  async function handleCopy() {
+    if (!videoUrl) return
+    await navigator.clipboard.writeText(videoUrl)
+    setCopied(true)
+    toast.success('copied to clipboard, meme away!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   const inputClass =
     'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]'
 
@@ -194,6 +213,17 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
                   )}
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
+                  {!editing && videoUrl && (
+                    <button
+                      onClick={handleCopy}
+                      className="text-[#747878] hover:text-[#1a1c1c]"
+                      title="copy link"
+                    >
+                      {copied
+                        ? <Check className="h-4 w-4 text-green-500" />
+                        : <Copy className="h-4 w-4" />}
+                    </button>
+                  )}
                   {!editing && (
                     <button
                       onClick={startEditing}
@@ -239,7 +269,6 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
                   ['duration', formatDuration(clip?.duration_seconds ?? 0)],
                   ['size', formatFileSize(clip?.file_size_bytes ?? 0)],
                   ['uploaded', clip ? formatDate(clip.created_at) : '—'],
-                  ['file', clip?.original_filename ?? '—'],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between">
                     <dt className="lowercase text-[#747878]">{label}</dt>
@@ -294,7 +323,7 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
                     {status && (
                       <StatusBadge
                         status={
-                          status === 'completed' ? 'ready'
+                          status === 'completed' || status === 'ready' ? 'ready'
                           : status === 'pending' ? 'pending'
                           : status === 'processing' ? 'processing'
                           : 'failed'

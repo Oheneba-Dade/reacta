@@ -108,7 +108,11 @@ export default function LibraryPage() {
       </div>
 
       {selectedClipId && (
-        <ClipModal clipId={selectedClipId} onClose={() => setSelectedClipId(null)} />
+        <ClipModal
+          clipId={selectedClipId}
+          onClose={() => setSelectedClipId(null)}
+          onDelete={() => refetch()}
+        />
       )}
     </div>
   )
