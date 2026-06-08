@@ -1,4 +1,10 @@
+import os
+
 from backend.config import settings
+
+_MODEL_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '..', 'models', 'whisper')
+)
 
 
 class TranscriptionService:
@@ -8,7 +14,7 @@ class TranscriptionService:
     def _get_model(cls):
         if cls._model is None:
             import whisper
-            cls._model = whisper.load_model(settings.whisper_model, download_root="/app/models")
+            cls._model = whisper.load_model(settings.whisper_model, download_root=_MODEL_DIR)
         return cls._model
 
     def transcribe(self, file_path: str) -> str:

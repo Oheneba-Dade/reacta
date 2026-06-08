@@ -1,4 +1,9 @@
+import os
+
 _MODEL_NAME = "all-MiniLM-L6-v2"
+_MODEL_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '..', 'models', 'sentence-transformers')
+)
 
 
 class EmbeddingService:
@@ -8,10 +13,7 @@ class EmbeddingService:
     def _get_model(cls):
         if cls._model is None:
             from sentence_transformers import SentenceTransformer
-            cls._model = SentenceTransformer(
-                _MODEL_NAME,
-                cache_folder="/app/models/sentence-transformers",
-            )
+            cls._model = SentenceTransformer(_MODEL_NAME, cache_folder=_MODEL_DIR)
         return cls._model
 
     def embed(self, text: str) -> list[float]:

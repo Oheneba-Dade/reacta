@@ -3,6 +3,7 @@ nixPkgs = ["ffmpeg", "python312"]
 
 [phases.build]
 cmds = [
-  "python -c \"import whisper; import os; os.makedirs('/app/models', exist_ok=True); whisper.load_model('base', download_root='/app/models')\"",
-  "python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='/app/models/sentence-transformers')\""
+  "mkdir -p models/whisper models/sentence-transformers",
+  "python -c \"import whisper; whisper.load_model('base', download_root='models/whisper')\"",
+  "python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2', cache_folder='models/sentence-transformers')\""
 ]
