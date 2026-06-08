@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
-import { clips as clipsApi, getVideoUrl } from '@/lib/api'
+import { X, Pencil } from 'lucide-react'
+import { toast } from 'sonner'
+import { clips as clipsApi } from '@/lib/api'
+import { useTags } from '@/hooks/useTags'
 import { StatusBadge } from './StatusBadge'
 import { TagBadge } from '@/components/tags/TagBadge'
 import type { Clip } from '@/lib/types'
@@ -25,13 +27,26 @@ function formatDate(iso: string) {
 interface Props {
   clipId: string
   onClose: () => void
+  onDelete?: () => void
+  onUpdate?: (clip: Clip) => void
 }
 
 const TERMINAL = ['ready', 'failed']
 
-export function ClipModal({ clipId, onClose }: Props) {
+export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
   const [clip, setClip] = useState<Clip | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { tags } = useTags()
+
+  // Edit state
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editTagIds, setEditTagIds] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+
+  // Delete state
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     clipsApi.get(clipId).then(setClip).catch(console.error)
@@ -39,37 +54,61 @@ export function ClipModal({ clipId, onClose }: Props) {
 
   useEffect(() => {
     if (!clip) return
-    if (!TERMINAL.includes(clip.processing_status)) {
-      intervalRef.current = setInterval(async () => {
-        try {
-          const status = await clipsApi.status(clipId)
-          if (TERMINAL.includes(status.processing_status)) {
-            clearInterval(intervalRef.current!)
-            const updated = await clipsApi.get(clipId)
-            setClip(updated)
-          } else {
-            setClip((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    processing_status: status.processing_status,
-                    desc_embedding_status: status.desc_embedding_status,
-                    transcript_status: status.transcript_status,
-                  }
-                : prev
-            )
-          }
-        } catch {}
-      }, 5000)
-    }
-    return () => clearInterval(intervalRef.current!)
+    if (TERMINAL.includes(clip.processing_status)) return
+
+    const id = setInterval(async () => {
+      try {
+        const status = await clipsApi.status(clipId)
+        if (TERMINAL.includes(status.processing_status)) {
+          clearInterval(id)
+          const updated = await clipsApi.get(clipId)
+          setClip(updated)
+        }
+      } catch {}
+    }, 5000)
+
+    return () => clearInterval(id)
   }, [clip?.processing_status, clipId])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (editing) { setEditing(false); return }
+        if (confirmingDelete) { setConfirmingDelete(false); return }
+        onClose()
+      }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, editing, confirmingDelete])
+
+  function startEditing() {
+    if (!clip) return
+    setEditTitle(clip.title ?? '')
+    setEditDescription(clip.description ?? '')
+    setEditTagIds(clip.tags.map((t) => t.id))
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    if (!clip) return
+    setSaving(true)
+    try {
+      const updated = await clipsApi.update(clip.id, {
+        title: editTitle.trim() || undefined,
+        description: editDescription.trim() || undefined,
+        tag_ids: editTagIds,
+      })
+      setClip(updated)
+      onUpdate?.(updated)
+      setEditing(false)
+      toast.success('clip updated')
+    } catch {
+      toast.error('failed to save changes')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function handleReprocess() {
     if (!clip) return
@@ -77,10 +116,32 @@ export function ClipModal({ clipId, onClose }: Props) {
       await clipsApi.reprocess(clip.id)
       const updated = await clipsApi.get(clip.id)
       setClip(updated)
-    } catch (e) {
-      console.error(e)
+    } catch {
+      toast.error('reprocess failed')
     }
   }
+
+  async function handleDelete() {
+    if (!clip) return
+    setDeleting(true)
+    try {
+      await clipsApi.delete(clip.id)
+      toast.success('clip deleted')
+      onDelete?.()
+      onClose()
+    } catch {
+      toast.error('failed to delete clip')
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
+  }
+
+  const inputClass =
+    'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]'
+
+  const videoUrl = clip?.storage_key
+    ? `${process.env.NEXT_PUBLIC_B2_PUBLIC_URL_BASE}/${clip.storage_key}`
+    : null
 
   return (
     <AnimatePresence>
@@ -99,11 +160,11 @@ export function ClipModal({ clipId, onClose }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_320px]">
             {/* Video column */}
             <div className="bg-black md:rounded-l-lg">
-              {clip?.processing_status === 'ready' ? (
+              {clip?.processing_status === 'ready' && videoUrl ? (
                 <video
                   controls
-                  className="w-full rounded-l-none md:rounded-l-lg"
-                  src={getVideoUrl(clip.storage_key)}
+                  className="w-full md:rounded-l-lg"
+                  src={videoUrl}
                 />
               ) : (
                 <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 p-8 text-center md:min-h-[360px]">
@@ -114,24 +175,60 @@ export function ClipModal({ clipId, onClose }: Props) {
             </div>
 
             {/* Metadata column */}
-            <div className="flex flex-col gap-0 p-6">
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <h2 className="text-[18px] font-medium leading-snug text-[#1a1c1c]">
-                    {clip?.title ?? clip?.original_filename ?? '—'}
-                  </h2>
-                  {clip?.description && (
-                    <p className="mt-1 text-[14px] leading-relaxed text-[#444748]">
-                      {clip.description}
-                    </p>
+            <div className="flex flex-col p-6">
+
+              {/* Header */}
+              <div className="mb-4 flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {editing ? (
+                    <input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="untitled"
+                      className={inputClass}
+                    />
+                  ) : (
+                    <h2 className="text-[18px] font-medium leading-snug text-[#1a1c1c]">
+                      {clip?.title ?? clip?.original_filename ?? '—'}
+                    </h2>
                   )}
                 </div>
-                <button
-                  onClick={onClose}
-                  className="ml-4 flex-shrink-0 text-[#747878] hover:text-[#1a1c1c]"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  {!editing && (
+                    <button
+                      onClick={startEditing}
+                      className="text-[#747878] hover:text-[#1a1c1c]"
+                      title="edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="text-[#747878] hover:text-[#1a1c1c]"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="mb-4">
+                {editing ? (
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="describe this clip..."
+                    rows={3}
+                    className={`${inputClass} resize-none`}
+                  />
+                ) : (
+                  clip?.description && (
+                    <p className="text-[14px] leading-relaxed text-[#444748]">
+                      {clip.description}
+                    </p>
+                  )
+                )}
               </div>
 
               <hr className="border-[#f5f5f5]" />
@@ -154,13 +251,34 @@ export function ClipModal({ clipId, onClose }: Props) {
               <hr className="border-[#f5f5f5]" />
 
               {/* Tags */}
-              {clip && clip.tags.length > 0 && (
-                <div className="my-4 flex flex-wrap gap-2">
-                  {clip.tags.map((t) => (
-                    <TagBadge key={t.id} label={t.label} />
-                  ))}
-                </div>
-              )}
+              <div className="my-4">
+                {editing ? (
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((t) => (
+                      <TagBadge
+                        key={t.id}
+                        label={t.label}
+                        active={editTagIds.includes(t.id)}
+                        onClick={() =>
+                          setEditTagIds((prev) =>
+                            prev.includes(t.id)
+                              ? prev.filter((id) => id !== t.id)
+                              : [...prev, t.id]
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  clip && clip.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {clip.tags.map((t) => (
+                        <TagBadge key={t.id} label={t.label} />
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
 
               <hr className="border-[#f5f5f5]" />
 
@@ -176,13 +294,10 @@ export function ClipModal({ clipId, onClose }: Props) {
                     {status && (
                       <StatusBadge
                         status={
-                          status === 'completed'
-                            ? 'ready'
-                            : status === 'pending'
-                            ? 'pending'
-                            : status === 'processing'
-                            ? 'processing'
-                            : 'failed'
+                          status === 'completed' ? 'ready'
+                          : status === 'pending' ? 'pending'
+                          : status === 'processing' ? 'processing'
+                          : 'failed'
                         }
                       />
                     )}
@@ -190,14 +305,61 @@ export function ClipModal({ clipId, onClose }: Props) {
                 ))}
               </div>
 
-              {clip?.processing_status === 'failed' && (
-                <button
-                  onClick={handleReprocess}
-                  className="mt-2 w-full rounded-md border border-[#e5e5e5] py-2 text-[14px] lowercase text-[#1a1c1c] hover:border-[#4648d4]"
-                >
-                  reprocess
-                </button>
-              )}
+              {/* Actions */}
+              <div className="mt-auto space-y-2">
+                {editing ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex-1 rounded-md bg-black py-2 text-[14px] lowercase text-white disabled:opacity-40"
+                    >
+                      {saving ? 'saving...' : 'save'}
+                    </button>
+                    <button
+                      onClick={() => setEditing(false)}
+                      className="flex-1 rounded-md border border-[#e5e5e5] py-2 text-[14px] lowercase text-[#1a1c1c] hover:border-[#4648d4]"
+                    >
+                      cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {clip?.processing_status === 'failed' && (
+                      <button
+                        onClick={handleReprocess}
+                        className="w-full rounded-md border border-[#e5e5e5] py-2 text-[14px] lowercase text-[#1a1c1c] hover:border-[#4648d4]"
+                      >
+                        reprocess
+                      </button>
+                    )}
+                    {confirmingDelete ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDelete}
+                          disabled={deleting}
+                          className="flex-1 rounded-md bg-[#ba1a1a] py-2 text-[14px] lowercase text-white disabled:opacity-40"
+                        >
+                          {deleting ? 'deleting...' : 'confirm delete'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmingDelete(false)}
+                          className="flex-1 rounded-md border border-[#e5e5e5] py-2 text-[14px] lowercase text-[#1a1c1c]"
+                        >
+                          cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingDelete(true)}
+                        className="w-full rounded-md border border-[#e5e5e5] py-2 text-[14px] lowercase text-[#ba1a1a] hover:border-[#ba1a1a]"
+                      >
+                        delete clip
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>

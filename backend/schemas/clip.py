@@ -13,6 +13,7 @@ class ClipResponse(BaseModel):
     description: str | None
     original_filename: str
     file_extension: str
+    storage_key: str
     duration_seconds: float
     file_size_bytes: int
     is_public: bool
