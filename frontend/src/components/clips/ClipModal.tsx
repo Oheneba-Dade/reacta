@@ -43,20 +43,21 @@ export function ClipModal({ clipId, onClose }: Props) {
       intervalRef.current = setInterval(async () => {
         try {
           const status = await clipsApi.status(clipId)
-          setClip((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  processing_status: status.processing_status,
-                  desc_embedding_status: status.desc_embedding_status,
-                  transcript_status: status.transcript_status,
-                }
-              : prev
-          )
           if (TERMINAL.includes(status.processing_status)) {
             clearInterval(intervalRef.current!)
-            // Refresh full clip to get updated data
-            clipsApi.get(clipId).then(setClip).catch(console.error)
+            const updated = await clipsApi.get(clipId)
+            setClip(updated)
+          } else {
+            setClip((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    processing_status: status.processing_status,
+                    desc_embedding_status: status.desc_embedding_status,
+                    transcript_status: status.transcript_status,
+                  }
+                : prev
+            )
           }
         } catch {}
       }, 5000)

@@ -54,3 +54,5 @@ Thumbs.db
 
 # ARQ / Redis
 dump.rdb
+
+models/
