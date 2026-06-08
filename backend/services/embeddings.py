@@ -8,7 +8,10 @@ class EmbeddingService:
     def _get_model(cls):
         if cls._model is None:
             from sentence_transformers import SentenceTransformer
-            cls._model = SentenceTransformer(_MODEL_NAME)
+            cls._model = SentenceTransformer(
+                _MODEL_NAME,
+                cache_folder="/app/models/sentence-transformers",
+            )
         return cls._model
 
     def embed(self, text: str) -> list[float]:
