@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-raleway);
+  --font-raleway: 'Raleway', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-accent: var(--accent);
+
+  /* Design system custom tokens */
+  --color-surface-lowest: var(--surface-lowest);
+  --color-surface-low: var(--surface-low);
+  --color-surface-base: var(--surface-base);
+  --color-surface-high: var(--surface-high);
+  --color-surface-highest: var(--surface-highest);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline-color);
+  --color-outline-variant: var(--outline-variant-color);
+  --color-accent-color: var(--accent-color);
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+
+  --radius-sm: calc(var(--radius) * 0.33);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 1.33);
+  --radius-full: 9999px;
+}
+
+:root {
+  /* shadcn base tokens mapped to our design system */
+  --background: #f9f9f9;
+  --foreground: #1a1c1c;
+  --card: #ffffff;
+  --card-foreground: #1a1c1c;
+  --popover: #ffffff;
+  --popover-foreground: #1a1c1c;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f3f3;
+  --secondary-foreground: #1a1c1c;
+  --muted: #f3f3f3;
+  --muted-foreground: #747878;
+  --accent: #eeeeee;
+  --accent-foreground: #1a1c1c;
+  --destructive: #ba1a1a;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #4648d4;
+  --radius: 6px;
+
+  /* Design system custom tokens */
+  --surface-lowest: #ffffff;
+  --surface-low: #f3f3f3;
+  --surface-base: #eeeeee;
+  --surface-high: #e8e8e8;
+  --surface-highest: #e2e2e2;
+  --on-surface: #1a1c1c;
+  --on-surface-variant: #444748;
+  --outline-color: #747878;
+  --outline-variant-color: #c4c7c7;
+  --accent-color: #4648d4;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: 'Raleway', sans-serif;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Raleway', sans-serif;
+  }
+}
+
+/* Tabular numbers for all numeric displays */
+.tabular,
+[data-numeric],
+[role="timer"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Processing pulse animation */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.pulse-dot {
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
