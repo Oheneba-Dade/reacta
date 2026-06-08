@@ -46,6 +46,14 @@ export default function SearchPage() {
         />
       )}
 
+      {hasSearched && (
+        <footer className="mt-12 border-t border-[#e5e5e5] pt-6">
+          <p className="mx-auto max-w-[640px] text-center text-[14px] leading-relaxed text-[#747878]">
+            results are ranked by a combination of semantic similarity to your description, transcript content, and keyword relevance. matched via both means the clip was found through multiple signals.
+          </p>
+        </footer>
+      )}
+
       {selectedClipId && (
         <ClipModal clipId={selectedClipId} onClose={() => setSelectedClipId(null)} />
       )}

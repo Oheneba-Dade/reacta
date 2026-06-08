@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 from abc import ABC, abstractmethod
 
@@ -76,7 +77,14 @@ class S3Storage(StorageBackend):
         )
 
     def save(self, key: str, file_bytes: bytes) -> str:
-        self._client.put_object(Bucket=self._bucket, Key=key, Body=file_bytes)
+        content_type, _ = mimetypes.guess_type(key)
+        content_type = content_type or "application/octet-stream"
+        self._client.put_object(
+            Bucket=self._bucket,
+            Key=key,
+            Body=file_bytes,
+            ContentType=content_type,
+        )
         return key
 
     def get_url(self, key: str) -> str:
