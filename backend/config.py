@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     b2_access_key_id: str | None = None
     b2_secret_access_key: str | None = None
     b2_bucket_name: str | None = None
+    b2_public_url_base: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env")
 
