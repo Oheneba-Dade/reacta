@@ -214,8 +214,39 @@ async def _validate_and_extract_duration(clip: Clip, file_path: str, db: AsyncSe
     await db.commit()
 
 
+async def on_job_abort(ctx: dict[str, Any]) -> None:
+    """Called by ARQ when a job is killed by the job_timeout. Updates clip status to failed."""
+    clip_id = ctx.get("job_id")
+    if not clip_id:
+        return
+
+    logger.error(f"process_clip aborted (timeout): clip_id={clip_id}")
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Clip).where(Clip.id == uuid.UUID(clip_id)))
+        clip = result.scalar_one_or_none()
+        if clip is None:
+            return
+
+        if clip.processing_status != ProcessingStatus.ready:
+            clip.processing_status = ProcessingStatus.failed
+            clip.desc_embedding_error = "job timed out"
+
+        if clip.transcript_status == TranscriptStatus.pending:
+            clip.transcript_status = TranscriptStatus.failed
+            clip.transcript_error = "job timed out"
+
+        if clip.desc_embedding_status == EmbeddingStatus.pending:
+            clip.desc_embedding_status = EmbeddingStatus.failed
+            clip.desc_embedding_error = "job timed out"
+
+        await db.commit()
+
+
 class WorkerSettings:
     functions = [process_clip]
     max_tries = 3
     retry_delay = 5
+    job_timeout = 600
+    on_job_abort = on_job_abort
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
