@@ -163,6 +163,7 @@ POST   /clips                    — multipart upload, returns 202
 PATCH  /clips/{clip_id}          — re-queues embedding if description changes
 DELETE /clips/{clip_id}
 GET    /clips/{clip_id}/status   — lightweight poll endpoint
+POST   /clips/{clip_id}/reprocess — reset failed clip state and re-queue job (400 if not failed)
 
 POST   /search                   — semantic search, always queries both signals
 
@@ -212,6 +213,12 @@ Steps in order:
 8. Embed description → update `description_embedding` + `desc_embedding_status = 'completed'`
 
 On failure at any step: update the relevant status column to `'failed'`, write error to the error column, do not crash the worker. Each step fails independently.
+
+**Transient errors** (`httpx.HTTPStatusError`, `httpx.TimeoutException`, `httpx.ConnectError`) are re-raised so ARQ retries the job (up to `max_tries=3`, `retry_delay=5s`). The clip is reset to `pending` before re-raising.
+
+**Permanent errors** (`FileNotFoundError`, ffprobe failure, Whisper failure) are caught, logged, and written to the error columns — the job ends as failed with no retry.
+
+**Logging**: `reacta.worker` logger emits INFO on each step completion and ERROR on each failure. `main.py` configures `logging.basicConfig` at startup.
 
 ---
 

@@ -14,11 +14,11 @@ from backend.schemas.search import SearchResponse, SearchResult
 # ---------------------------------------------------------------------------
 # Scoring weights — tune these without touching any other logic
 # ---------------------------------------------------------------------------
-W_DESC_VEC  = 0.45   # semantic similarity to description embedding
-W_TRANS_VEC = 0.20   # semantic similarity to transcript embedding
-W_LEXICAL   = 0.25   # ts_rank keyword match in transcript chunks
-W_EXACT     = 0.10   # verbatim word/phrase found in transcript
-W_TAG       = 0.05   # query contains a tag label word
+W_DESC_VEC  = 0.60   # semantic similarity to description embedding
+W_TRANS_VEC = 0.15   # semantic similarity to transcript embedding
+W_LEXICAL   = 0.15   # ts_rank keyword match in transcript chunks
+W_EXACT     = 0.07   # verbatim word/phrase found in transcript
+W_TAG       = 0.03   # query contains a tag label word
 W_RECENCY   = 0.00   # linear recency decay (disabled; set to 0.05 to enable)
 RECENCY_MAX_DAYS = 90
 

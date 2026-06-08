@@ -1,5 +1,5 @@
+import logging
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -7,11 +7,21 @@ from fastapi.responses import JSONResponse
 from backend.routers import auth, clips, search, tags
 from backend.services.embeddings import embedding_service
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+
+logger = logging.getLogger("reacta")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Reacta API starting up")
     embedding_service._get_model()
     yield
+    logger.info("Reacta API shutting down")
 
 
 app = FastAPI(title="Reacta API", version="1.0.0", lifespan=lifespan)
