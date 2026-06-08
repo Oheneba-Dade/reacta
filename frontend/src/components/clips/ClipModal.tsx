@@ -186,7 +186,7 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
                   src={videoUrl}
                 />
               ) : (
-                <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 p-8 text-center md:min-h-[360px]">
+                <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 p-6 text-center md:min-h-[360px]">
                   <div className="h-2 w-2 rounded-full bg-[#747878] pulse-dot" />
                   <p className="text-[14px] text-[#444748]">processing in background</p>
                 </div>
@@ -194,7 +194,7 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
             </div>
 
             {/* Metadata column */}
-            <div className="flex flex-col p-6">
+            <div className="flex flex-col p-4 md:p-6">
 
               {/* Header */}
               <div className="mb-4 flex items-start justify-between gap-2">

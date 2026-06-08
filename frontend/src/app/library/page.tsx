@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
 import { isAuthenticated } from '@/lib/auth'
 import { useClips } from '@/hooks/useClips'
 import { useTags } from '@/hooks/useTags'
 import { ClipGrid } from '@/components/clips/ClipGrid'
 import { ClipModal } from '@/components/clips/ClipModal'
 import { TagFilter } from '@/components/tags/TagFilter'
+import { TagBadge } from '@/components/tags/TagBadge'
 
 export default function LibraryPage() {
   const router = useRouter()
@@ -16,6 +18,7 @@ export default function LibraryPage() {
   const { tags } = useTags()
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated()) router.replace('/')
@@ -33,8 +36,8 @@ export default function LibraryPage() {
       : clips.filter((c) => c.tags.some((t) => selectedTags.includes(t.id)))
 
   return (
-    <div className="flex min-h-[calc(100vh-56px)]">
-      {/* Sidebar */}
+    <div className="flex min-h-[calc(100vh-120px)] md:min-h-[calc(100vh-56px)]">
+      {/* Sidebar — desktop only */}
       <aside className="hidden w-60 flex-shrink-0 border-r border-[#e5e5e5] p-6 md:block">
         <TagFilter
           tags={tags}
@@ -45,8 +48,8 @@ export default function LibraryPage() {
       </aside>
 
       {/* Main */}
-      <div className="flex-1 p-6">
-        <div className="mb-6 flex items-center justify-between">
+      <div className="flex-1 p-4 md:p-6">
+        <div className="mb-4 flex items-center justify-between md:mb-6">
           <div>
             <h1 className="text-[18px] font-medium lowercase tracking-[-0.02em] text-[#1a1c1c]">
               your library
@@ -64,6 +67,41 @@ export default function LibraryPage() {
             upload
           </Link>
         </div>
+
+        {/* Mobile tag filter */}
+        {tags.length > 0 && (
+          <div className="mb-4 md:hidden">
+            <button
+              onClick={() => setFilterOpen((o) => !o)}
+              className="flex items-center gap-1 text-[14px] lowercase text-[#747878]"
+            >
+              filter{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
+              <ChevronDown
+                className={`h-4 w-4 transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {filterOpen && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tags.map((t) => (
+                  <TagBadge
+                    key={t.id}
+                    label={t.label}
+                    active={selectedTags.includes(t.id)}
+                    onClick={() => toggleTag(t.id)}
+                  />
+                ))}
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={() => setSelectedTags([])}
+                    className="text-[12px] lowercase text-[#4648d4] hover:underline"
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
