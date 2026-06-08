@@ -1,7 +1,10 @@
+import logging
 import os
 from abc import ABC, abstractmethod
 
 from backend.config import settings
+
+logger = logging.getLogger("reacta")
 
 
 class StorageBackend(ABC):
@@ -60,6 +63,9 @@ class S3Storage(StorageBackend):
                 f"STORAGE_BACKEND=s3 requires these env vars: {', '.join(missing)}"
             )
 
+        if not settings.b2_public_url_base:
+            logger.warning("B2_PUBLIC_URL_BASE is not set — get_url() will fall back to presigned URLs")
+
         self._bucket = settings.b2_bucket_name
         self._client = boto3.client(
             "s3",
@@ -74,6 +80,8 @@ class S3Storage(StorageBackend):
         return key
 
     def get_url(self, key: str) -> str:
+        if settings.b2_public_url_base:
+            return f"{settings.b2_public_url_base.rstrip('/')}/{key}"
         return self._client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self._bucket, "Key": key},

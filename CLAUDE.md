@@ -280,6 +280,14 @@ MEDIA_ROOT
 STORAGE_BACKEND=disk
 REDIS_URL
 WHISPER_MODEL=base
+
+# Required when STORAGE_BACKEND=s3 (Backblaze B2)
+B2_ENDPOINT_URL
+B2_ACCESS_KEY_ID
+B2_SECRET_ACCESS_KEY
+B2_BUCKET_NAME
+B2_PUBLIC_URL_BASE   # optional — permanent public URL base (e.g. https://f003.backblazeb2.com/file/reacta)
+                     # if not set, get_url() falls back to presigned URLs (1hr expiry)
 ```
 
 ---
