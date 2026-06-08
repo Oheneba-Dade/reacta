@@ -1,2 +1,5 @@
 [phases.setup]
 nixPkgs = ["ffmpeg", "python312"]
+
+[phases.build]
+cmds = ["python -c \"import whisper; import os; os.makedirs('/app/models', exist_ok=True); whisper.load_model('base', download_root='/app/models')\""]
