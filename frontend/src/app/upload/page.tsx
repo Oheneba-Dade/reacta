@@ -13,7 +13,7 @@ export default function UploadPage() {
   }, [router])
 
   return (
-    <div className="mx-auto max-w-[560px] px-4 py-12">
+    <div className="mx-auto max-w-[560px] px-4 py-6 md:py-12">
       <h1 className="mb-8 text-[18px] font-medium lowercase tracking-[-0.02em] text-[#1a1c1c]">
         upload a clip
       </h1>

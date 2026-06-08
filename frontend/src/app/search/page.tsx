@@ -18,7 +18,7 @@ export default function SearchPage() {
   }, [router])
 
   return (
-    <div className="mx-auto max-w-[800px] px-6 py-12">
+    <div className="mx-auto max-w-[800px] px-4 py-6 md:px-6 md:py-12">
       <div className="mb-8 flex justify-center">
         <div className="w-full max-w-[640px]">
           <SearchBar onSearch={runSearch} />
