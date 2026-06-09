@@ -14,6 +14,8 @@ export function TopNav() {
   const pathname = usePathname()
   const { logout } = useAuth()
 
+  if (pathname === '/') return null
+
   return (
     <nav className="hidden h-14 items-center justify-between border-b border-[#e5e5e5] bg-white px-6 md:flex">
       <Link href="/library" className="text-[18px] font-semibold lowercase text-[#1a1c1c]">
