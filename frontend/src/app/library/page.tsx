@@ -62,9 +62,9 @@ export default function LibraryPage() {
           </div>
           <Link
             href="/upload"
-            className="rounded-md border border-[#e5e5e5] px-4 py-2 text-[14px] lowercase text-[#1a1c1c] hover:border-[#4648d4]"
+            className="md:rounded-md md:border md:border-[#e5e5e5] md:px-4 md:py-2 text-[14px] lowercase text-[#1a1c1c] hover:text-[#4648d4] md:hover:border-[#4648d4] md:hover:text-[#1a1c1c]"
           >
-            <span className="md:hidden text-[18px] leading-none">+</span>
+            <span className="md:hidden text-[40px] font-bold leading-none">+</span>
             <span className="hidden md:inline">upload</span>
           </Link>
         </div>
