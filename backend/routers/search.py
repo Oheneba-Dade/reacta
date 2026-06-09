@@ -25,4 +25,5 @@ async def search(
         user_id=current_user.id,
         db=db,
         tag_labels=tag_labels,
+        limit=body.limit,
     )

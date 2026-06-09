@@ -44,7 +44,7 @@ export function AuthForm() {
   }
 
   const inputClass =
-    'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none transition-colors focus:border-[#4648d4]'
+    'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[16px] md:text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none transition-colors focus:border-[#4648d4]'
   const labelClass = 'block mb-1 text-[12px] font-medium lowercase tracking-[0.02em] text-[#1a1c1c]'
 
   return (

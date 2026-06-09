@@ -88,8 +88,8 @@ export const clips = {
 }
 
 export const search = {
-  query: (q: string) =>
-    api.post<{ results: SearchResult[] }>('/search', { query: q }).then((r) => r.data),
+  query: (q: string, limit: number = 3) =>
+    api.post<{ results: SearchResult[] }>('/search', { query: q, limit }).then((r) => r.data),
 }
 
 export const tags = {

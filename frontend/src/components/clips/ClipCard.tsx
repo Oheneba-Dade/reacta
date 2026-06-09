@@ -53,18 +53,18 @@ export function ClipCard({ clip, matchSource, onClick }: Props) {
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <p className="text-[16px] font-medium leading-snug text-[#1a1c1c] line-clamp-1">
+      <div className="p-3 md:p-4">
+        <p className="text-[14px] font-medium leading-snug text-[#1a1c1c] line-clamp-1 md:text-[16px]">
           {displayTitle}
         </p>
         {clip.description && (
-          <p className="mt-1 text-[14px] leading-snug text-[#444748] line-clamp-2">
+          <p className="mt-1 text-[13px] leading-snug text-[#444748] line-clamp-2 md:text-[14px]">
             {clip.description}
           </p>
         )}
 
         {/* Footer */}
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between md:mt-3">
           <span className="tabular text-[12px] font-medium text-[#747878]">
             {formatDuration(clip.duration_seconds)}
           </span>
