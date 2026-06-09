@@ -156,7 +156,7 @@ export function ClipModal({ clipId, onClose, onDelete, onUpdate }: Props) {
   }
 
   const inputClass =
-    'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]'
+    'w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[16px] md:text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]'
 
   const videoUrl = clip?.storage_key
     ? `${process.env.NEXT_PUBLIC_B2_PUBLIC_URL_BASE}/${clip.storage_key}`

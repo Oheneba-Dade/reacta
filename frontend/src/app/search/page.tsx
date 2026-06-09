@@ -10,7 +10,7 @@ import { ClipModal } from '@/components/clips/ClipModal'
 
 export default function SearchPage() {
   const router = useRouter()
-  const { query, results, loading, error, hasSearched, runSearch } = useSearch()
+  const { query, results, loading, error, hasSearched, runSearch, limit, changeLimit } = useSearch()
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -19,9 +19,27 @@ export default function SearchPage() {
 
   return (
     <div className="mx-auto max-w-[800px] px-4 py-6 md:px-6 md:py-12">
-      <div className="mb-8 flex justify-center">
-        <div className="w-full max-w-[640px]">
+      <div className="mb-6 flex justify-center">
+        <div className="w-full max-w-[640px] space-y-3">
           <SearchBar onSearch={runSearch} />
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] lowercase text-[#747878]">results</span>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => changeLimit(n)}
+                  className={`h-7 w-7 rounded text-[12px] transition-colors ${
+                    limit === n
+                      ? 'bg-[#4648d4] text-white'
+                      : 'border border-[#e5e5e5] text-[#747878] hover:border-[#4648d4] hover:text-[#1a1c1c]'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

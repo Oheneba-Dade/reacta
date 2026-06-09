@@ -59,8 +59,9 @@ async def search_clips(
     user_id: uuid.UUID,
     db: AsyncSession,
     tag_labels: list[str] | None = None,
+    limit: int = 3,
 ) -> SearchResponse:
-    """Two-stage hybrid search: vector retrieval → lexical rerank → top 10."""
+    """Two-stage hybrid search: vector retrieval → lexical rerank → top N."""
     embed_query, search_terms = preprocess_query(query)
 
     # Stage 1: vector candidate retrieval (HNSW indexes)
@@ -94,6 +95,7 @@ async def search_clips(
         clips_by_id=clips_by_id,
         tag_labels=tag_labels or [],
         search_terms=search_terms,
+        limit=limit,
     )
 
     results = []
@@ -232,8 +234,9 @@ def _compute_final_scores(
     clips_by_id: dict[uuid.UUID, Clip],
     tag_labels: list[str],
     search_terms: str,
+    limit: int = 3,
 ) -> list[tuple[uuid.UUID, float, str]]:
-    """Apply weighted formula, assign match_source, return top 10 by score."""
+    """Apply weighted formula, assign match_source, return top N by score."""
     tag_score = _tag_boost(search_terms, tag_labels)
     all_ids = set(desc_scores) | set(trans_scores)
     ranked = []
@@ -269,4 +272,4 @@ def _compute_final_scores(
         ranked.append((clip_id, score, match_source))
 
     ranked.sort(key=lambda x: x[1], reverse=True)
-    return ranked[:10]
+    return ranked[:limit]

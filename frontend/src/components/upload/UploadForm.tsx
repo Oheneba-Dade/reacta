@@ -135,7 +135,7 @@ export function UploadForm() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="untitled"
-          className="w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]"
+          className="w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[16px] md:text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4]"
         />
       </div>
 
@@ -149,7 +149,7 @@ export function UploadForm() {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="describe what happens in this clip..."
           rows={4}
-          className="w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4] resize-none"
+          className="w-full rounded-md border border-[#e5e5e5] px-3 py-2 text-[16px] md:text-[14px] text-[#1a1c1c] placeholder-[#747878] outline-none focus:border-[#4648d4] resize-none"
         />
         <p className="text-[12px] lowercase tracking-[0.02em] text-[#747878]">
           this powers semantic search — be descriptive
