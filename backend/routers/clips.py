@@ -1,3 +1,5 @@
+import logging
+import time
 import uuid
 
 from arq import create_pool
@@ -17,6 +19,7 @@ from backend.schemas.clip import ClipCreateResponse, ClipResponse, ClipStatusRes
 from backend.services.storage import get_storage
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+logger = logging.getLogger("reacta.clips")
 
 
 async def _enqueue_process_clip(clip_id: str) -> None:
@@ -84,7 +87,9 @@ async def upload_clip(
     storage_key = f"{current_user.id}/{clip_id}{ext}"
 
     storage = get_storage()
+    upload_start = time.time()
     storage.save(storage_key, file_bytes)
+    upload_duration_ms = round((time.time() - upload_start) * 1000)
 
     tags: list[TagDefinition] = []
     if tag_ids:
@@ -110,6 +115,10 @@ async def upload_clip(
     )
     db.add(clip)
     await db.commit()
+    logger.info(
+        f"clip uploaded: clip_id={clip_id}, owner_id={current_user.id}, "
+        f"file_size_bytes={len(file_bytes)}, duration_ms={upload_duration_ms}"
+    )
 
     await _enqueue_process_clip(str(clip_id))
 
@@ -162,11 +171,12 @@ async def delete_clip(
     storage = get_storage()
     try:
         storage.delete(clip.storage_key)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"clip {clip_id}: storage cleanup failed — {exc}")
 
     await db.delete(clip)
     await db.commit()
+    logger.info(f"clip deleted: clip_id={clip_id}, owner_id={current_user.id}")
 
 
 @router.get("/{clip_id}/status", response_model=ClipStatusResponse)
@@ -202,5 +212,6 @@ async def reprocess_clip(
     await db.commit()
 
     await _enqueue_process_clip(str(clip_id))
+    logger.info(f"clip reprocess requested: clip_id={clip_id}, owner_id={current_user.id}")
 
     return ClipCreateResponse(id=clip_id, processing_status=ProcessingStatus.pending.value)
