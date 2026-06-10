@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 import uuid
 from typing import Any
 
@@ -76,7 +77,9 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
     Transient errors (network, B2) are re-raised so ARQ retries the job.
     Permanent errors update the relevant status column and end the job.
     """
-    logger.info(f"process_clip started: clip_id={clip_id}")
+    attempt = ctx.get("job_try", 1)
+    start_time = time.time()
+    logger.info(f"process_clip started: clip_id={clip_id}, attempt={attempt}")
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Clip).where(Clip.id == uuid.UUID(clip_id)))
@@ -86,9 +89,13 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             return
 
         # Step 1: mark as processing
+        step_start = time.time()
         clip.processing_status = ProcessingStatus.processing
         await db.commit()
-        logger.info(f"clip {clip_id}: step 1 complete — marked as processing")
+        logger.info(
+            f"clip {clip_id}: step complete — step=mark_processing, "
+            f"duration_ms={round((time.time() - step_start) * 1000)}"
+        )
 
         # Resolve file to a local path (downloads to temp file if S3/B2)
         storage = get_storage()
@@ -97,7 +104,13 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
         try:
             local_path, is_temp = await _resolve_local_path(file_url, clip.file_extension)
         except _TRANSIENT_ERRORS as exc:
-            logger.warning(f"clip {clip_id}: transient error downloading file, will retry — {exc}")
+            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404:
+                logger.error(f"clip {clip_id}: file not found in storage: storage_key={clip.storage_key}")
+            else:
+                logger.warning(
+                    f"clip {clip_id}: transient error downloading file, "
+                    f"attempt={attempt}, will retry — {type(exc).__name__}"
+                )
             clip.processing_status = ProcessingStatus.pending
             await db.commit()
             raise
@@ -105,16 +118,23 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
         try:
             # Steps 2–4: validate file and extract duration
             try:
+                step_start = time.time()
                 await _validate_and_extract_duration(clip, local_path, db)
-                logger.info(f"clip {clip_id}: step 4 complete — duration extracted, status ready")
+                logger.info(
+                    f"clip {clip_id}: step complete — step=duration_extraction, "
+                    f"duration_ms={round((time.time() - step_start) * 1000)}"
+                )
             except (FileNotFoundError, RuntimeError) as exc:
-                logger.error(f"clip {clip_id}: step 2–4 permanent failure — {exc}")
+                logger.error(f"clip {clip_id}: step failed — step=duration_extraction, error={exc}")
                 clip.processing_status = ProcessingStatus.failed
                 clip.desc_embedding_error = f"Processing failed: {exc}"
                 await db.commit()
                 return
             except _TRANSIENT_ERRORS as exc:
-                logger.warning(f"clip {clip_id}: transient error in steps 2–4, will retry — {exc}")
+                logger.warning(
+                    f"clip {clip_id}: transient error in steps 2–4, "
+                    f"attempt={attempt}, will retry — {type(exc).__name__}"
+                )
                 clip.processing_status = ProcessingStatus.pending
                 await db.commit()
                 raise
@@ -122,25 +142,29 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             # Step 5: transcription (skip if already completed)
             if clip.transcript_status != TranscriptStatus.completed:
                 try:
+                    step_start = time.time()
                     transcript_text = await asyncio.to_thread(transcription_service.transcribe, local_path)
                     clip.transcript = transcript_text
                     clip.transcript_status = TranscriptStatus.completed
                     clip.transcript_error = None
                     await db.commit()
                     if transcript_text:
-                        logger.info(f"clip {clip_id}: step 5 complete — transcription done")
+                        logger.info(
+                            f"clip {clip_id}: step complete — step=transcription, "
+                            f"duration_ms={round((time.time() - step_start) * 1000)}"
+                        )
                     else:
-                        logger.info(f"clip {clip_id}: step 5 complete — no speech detected, transcript empty")
+                        logger.warning(f"clip {clip_id}: no speech detected")
                 except RuntimeError as exc:
                     # Whisper raises RuntimeError on silent/empty audio (reshape error).
                     # Treat as no speech — clip is still searchable via description.
-                    logger.info(f"clip {clip_id}: step 5 — no speech detected ({exc}), marking complete with empty transcript")
+                    logger.warning(f"clip {clip_id}: no speech detected")
                     clip.transcript = ""
                     clip.transcript_status = TranscriptStatus.completed
                     clip.transcript_error = None
                     await db.commit()
                 except Exception as exc:
-                    logger.error(f"clip {clip_id}: step 5 failed — {exc}")
+                    logger.error(f"clip {clip_id}: step failed — step=transcription, error={exc}")
                     clip.transcript_status = TranscriptStatus.failed
                     clip.transcript_error = str(exc)
                     await db.commit()
@@ -148,6 +172,7 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             # Steps 6–7: chunk and embed transcript
             if clip.transcript and clip.transcript_status == TranscriptStatus.completed:
                 try:
+                    step_start = time.time()
                     chunks = chunk_transcript(clip.transcript)
                     embeddings = await asyncio.to_thread(embedding_service.embed_batch, chunks)
 
@@ -162,10 +187,13 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
                             embedding=vec,
                         ))
                     await db.commit()
-                    logger.info(f"clip {clip_id}: step 7 complete — transcript chunks embedded")
+                    logger.info(
+                        f"clip {clip_id}: step complete — step=transcript_embedding, "
+                        f"duration_ms={round((time.time() - step_start) * 1000)}"
+                    )
                 except Exception as exc:
                     await db.rollback()
-                    logger.error(f"clip {clip_id}: steps 6–7 transcript embedding failed — {exc}")
+                    logger.error(f"clip {clip_id}: step failed — step=transcript_embedding, error={exc}")
                     clip.transcript_status = TranscriptStatus.failed
                     clip.transcript_error = str(exc)
                     await db.commit()
@@ -173,14 +201,18 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             # Step 8: embed description
             if clip.description:
                 try:
+                    step_start = time.time()
                     vec = await asyncio.to_thread(embedding_service.embed, clip.description)
                     clip.description_embedding = vec
                     clip.desc_embedding_status = EmbeddingStatus.completed
                     clip.desc_embedding_error = None
                     await db.commit()
-                    logger.info(f"clip {clip_id}: step 8 complete — description embedded")
+                    logger.info(
+                        f"clip {clip_id}: step complete — step=description_embedding, "
+                        f"duration_ms={round((time.time() - step_start) * 1000)}"
+                    )
                 except Exception as exc:
-                    logger.error(f"clip {clip_id}: step 8 failed — {exc}")
+                    logger.error(f"clip {clip_id}: step failed — step=description_embedding, error={exc}")
                     clip.desc_embedding_status = EmbeddingStatus.failed
                     clip.desc_embedding_error = str(exc)
                     await db.commit()
@@ -189,10 +221,13 @@ async def process_clip(ctx: dict[str, Any], clip_id: str) -> None:
             if is_temp:
                 try:
                     os.unlink(local_path)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(f"clip {clip_id}: temp file cleanup failed — {type(exc).__name__}: {exc}")
 
-    logger.info(f"process_clip complete: clip_id={clip_id}")
+    logger.info(
+        f"process_clip complete: clip_id={clip_id}, "
+        f"total_duration_ms={round((time.time() - start_time) * 1000)}"
+    )
 
 
 async def _validate_and_extract_duration(clip: Clip, file_path: str, db: AsyncSession) -> None:

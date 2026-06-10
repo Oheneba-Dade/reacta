@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 
 from backend.config import settings
 
-logger = logging.getLogger("reacta")
+logger = logging.getLogger("reacta.storage")
 
 
 class StorageBackend(ABC):

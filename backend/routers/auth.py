@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -20,6 +21,7 @@ from backend.schemas.auth import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger("reacta.auth")
 
 
 def _hash_password(password: str) -> str:
@@ -70,6 +72,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": "conflict", "message": "Username or email already in use"},
         )
+    logger.info(f"user registered: username={user.username}")
     return UserResponse.model_validate(user)
 
 
@@ -84,6 +87,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> Token
             detail={"error": "unauthorized", "message": "Invalid credentials"},
         )
 
+    logger.info(f"user logged in: username={user.username}")
     user_id = str(user.id)
     return TokenResponse(
         access_token=_create_access_token(user_id),
